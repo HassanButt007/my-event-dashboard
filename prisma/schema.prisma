@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELED
+}
+
+// ----------------------
+// User model
+// ----------------------
+model User {
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  password  String
+  name      String?
+  events    Event[]
+  reminders Reminder[] 
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// ----------------------
+// Event model
+// ----------------------
+model Event {
+  id          Int          @id @default(autoincrement())
+  title       String  
+  description String?
+  date        DateTime
+  location    String       
+  status      EventStatus  @default(DRAFT)
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id])
+  reminders   Reminder[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([title, date, userId])
+}
+
+// ----------------------
+// Reminder model
+// ----------------------
+model Reminder {
+  id           Int      @id @default(autoincrement())
+  reminderTime DateTime
+  eventId      Int
+  userId       Int
+
+  event        Event    @relation(fields: [eventId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
