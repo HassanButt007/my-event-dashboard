@@ -19,7 +19,6 @@ A production-quality **Event Management Dashboard with Reminders**, built with *
 
 1. **Clone the repository**
    git clone https://github.com/HassanButt007/my-event-dashboard.git
-   cd my-event-dashboard
 
 2. **Install dependencies**
    npm install
