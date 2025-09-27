@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { FaBell } from 'react-icons/fa';
 import { formatDistanceToNow } from 'date-fns';
 import Dropdown from './ui/dropdown-menu';
+import { toInputDateTime } from '@/lib/date';
 
 type BellItem = {
   id: number;
@@ -21,8 +22,10 @@ export default function ReminderBell() {
 
   const fetchUnseen = useCallback(async () => {
     if (!userId) return;
+
     try {
       const res = await getUnseenDueRemindersForUser(userId);
+
       const mapped = res.map((r: any) => {
         const reminderTime =
           r.reminderTime instanceof Date ? r.reminderTime.toISOString() : r.reminderTime;
@@ -34,11 +37,10 @@ export default function ReminderBell() {
         } as BellItem;
       });
 
-      // Build logs as required and keep list for dropdown
+      // Log notifications in required format
       mapped.forEach((rem) => {
         const relativeTime = formatDistanceToNow(new Date(rem.reminderTime), { addSuffix: true });
-        const log = `[REMINDER] Event: ${rem.eventTitle}, User: ${rem.userId}, Time: ${relativeTime}`;
-        console.log(log);
+        console.log(`[REMINDER] Event: ${rem.eventTitle}, User: ${rem.userId}, Time: ${relativeTime}`);
       });
 
       setItems(mapped);
@@ -49,12 +51,10 @@ export default function ReminderBell() {
 
   useEffect(() => {
     fetchUnseen();
-    // Poll occasionally (optional) to update badge
-    const interval = setInterval(fetchUnseen, 30_000); // 30s
+    const interval = setInterval(fetchUnseen, 30_000); // Poll every 30s
     return () => clearInterval(interval);
   }, [fetchUnseen]);
 
-  // Called when dropdown opens)
   async function handleOpenChange(open: boolean) {
     if (!open) return;
     if (!userId) {
@@ -65,10 +65,8 @@ export default function ReminderBell() {
     try {
       const res = await markRemindersAsSeenForUser(userId);
       if ((res as any).success) {
-        // clear client badge
         setItems([]);
       } else {
-        // clear the UI count
         setItems([]);
       }
     } catch (err) {
@@ -91,12 +89,21 @@ export default function ReminderBell() {
       }
       items={
         items.length > 0
-          ? items.map((r) => (
-              <div key={r.id} className="px-3 py-2">
-                <div className="font-mono text-xs text-gray-800">{`[REMINDER] Event: ${r.eventTitle}`}</div>
-                <div className="text-xs text-gray-500">{new Date(r.reminderTime).toLocaleString()}</div>
-              </div>
-            ))
+          ? items.map((r) => {
+            const relativeTime = formatDistanceToNow(new Date(r.reminderTime), { addSuffix: true });
+            return (
+              <>
+                <div key={r.id} className="px-3 py-2 border-b last:border-none">
+                  <div className="font-mono text-xs text-gray-800">
+                    [REMINDER] Event: {r.eventTitle}, User: {r.userId}, Time: {relativeTime}
+                  </div>
+                  {/* <div className="text-xs text-gray-500">
+                    Exact: {toInputDateTime(r.reminderTime)}
+                  </div> */}
+                </div>
+              </>
+            );
+          })
           : [<div key="empty" className="px-3 py-2 text-gray-500 text-sm">No reminders</div>]
       }
     />
