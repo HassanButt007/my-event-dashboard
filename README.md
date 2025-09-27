@@ -1,6 +1,6 @@
 # My Event Dashboard
 
-A production-quality **Event Management Dashboard with Reminders**, built with **Next.js 15**, **React 18**, **Prisma**, **NextAuth**, **TailwindCSS**, and **Shadcn/UI**.
+A production-quality **Event Management Dashboard with Reminders**, built with **Next.js 15**, **React 18**, **Prisma**, **NextAuth**, **TailwindCSS**, **Shadcn/UI**, and **TanStack React Table**.
 
 ---
 
@@ -9,20 +9,22 @@ A production-quality **Event Management Dashboard with Reminders**, built with *
 * [Setup Instructions](#setup-instructions)
 * [Architecture Decisions](#architecture-decisions)
 * [Trade-off Analysis](#trade-off-analysis)
+* [Validation & Constraints](#validation--constraints)
 * [Handling Custom Constraints](#handling-custom-constraints)
 * [Scalability Considerations](#scalability-considerations)
 * [Frequently Asked Questions](#frequently-asked-questions)
+* [Additional Notes](#additional-notes)
 
 ---
 
 ## Setup Instructions
 
 1. **Clone the repository**
+   ```bash
    git clone https://github.com/HassanButt007/my-event-dashboard.git
 
 2. **Install dependencies**
    npm install
-               
 
 3. **Initialize Shadcn/UI**
    npx shadcn-ui init
@@ -32,23 +34,31 @@ A production-quality **Event Management Dashboard with Reminders**, built with *
    npx prisma migrate dev --name init
    npm run seed
 
+   **To see Database Tables**
+   npx prisma studio
+
 5. **Run development server**
    npm run dev
 
+**Architecture Decisions**
 
-## Architecture Decisions
+   Next.js 15: Server components for improved performance, built-in routing, and suspense support.
 
-* **Next.js 15**: Server components for improved performance and built-in routing.
-* **React 18**: Concurrent rendering and Suspense support.
-* **Prisma + SQLite**: Lightweight DB for local development; can scale to PostgreSQL/MySQL.
-* **NextAuth**: Provides secure authentication with credentials and session handling.
-* **TailwindCSS + Shadcn/UI**: For rapid, modern, and responsive UI development.
-* **React Table**: Efficient, fully-featured tables with sorting and filtering.
-* **Radix Dialog**: Accessible and reusable modals for quick views.
+   React 18: Concurrent rendering and Suspense support.
 
----
+   Prisma + SQLite: Lightweight DB for local development; can scale to PostgreSQL/MySQL.
 
-## Trade-off Analysis
+   NextAuth.js v5: Secure authentication with credentials and session handling.
+
+   TailwindCSS + Shadcn/UI: Rapid, responsive, and modern UI development.
+
+   TanStack React Table: Efficient, fully-featured tables with server-side pagination, sorting, and filtering.
+
+   Radix Dialog: Accessible modals for quick views.
+
+   Server Actions: Atomic, type-safe DB operations, avoiding API boilerplate.
+
+**Trade-off Analysis**
 
 | Feature         | Server Actions                        | API Routes             | Decision                                             |
 | --------------- | ------------------------------------- | ---------------------- | ---------------------------------------------------- |
@@ -56,48 +66,59 @@ A production-quality **Event Management Dashboard with Reminders**, built with *
 | Authentication  | ✅ NextAuth server-side                | ❌ Custom API needed    | NextAuth for secure session management               |
 | Reminders       | ✅ Atomic DB writes via Server Actions | ❌ API polling required | Server Actions for reliability and real-time updates |
 
----
 
-## Handling Custom Constraints
+**Validation & Constraints**
 
-* **Reminder Logic**: Each reminder is unique, triggers at the correct time, and prevents duplication.
-* **Session Timeout**: Managed with NextAuth JWT and client-side hooks for inactivity logout.
-* **Event Ownership**: Each event linked to a `userId`. Update/Delete access is controlled based on ownership.
-* **Start/End Time Management**: Start time captured on page load and remains constant; end time can be adjusted before sending to the API.
+   Event Fields
 
----
+      Title: required, max 100 characters
 
-## Scalability Considerations
+      Description: optional, max 500 characters
 
-* Use distributed queues (e.g., BullMQ or RabbitMQ) for scaling reminders.
-* Cache frequent queries with Redis or in-memory solutions for faster table rendering.
-* Support horizontal scaling via environment-specific DB endpoints and serverless functions.
+      Date: required, must be a future date
 
----
+      Location: required, format "CountryCode-Region: City" (e.g., "US-NY: New York")
 
-## Frequently Asked Questions
+      Status: enum (DRAFT, PUBLISHED, CANCELED)
 
-### Multi-region Deployments
+      Constraint: No duplicate title + date for the same user
 
-* Use globally available databases.
-* Deploy via Vercel or other edge networks for low-latency access.
-* Store reminders centrally to ensure consistent triggers.
+   Reminders
 
-### Recurring Events / Reminders
+      One reminder per event
 
-* Add `recurrence` field (`daily`, `weekly`, `monthly`) to events.
-* Use serverless cron jobs or scheduled functions to generate recurring reminders.
+      Reminder time: 15 minutes to 7 days before event
 
-### Shared Event Ownership
+      Automatically adjusted or removed if event date changes
 
-* Implement many-to-many relationships between users and events.
-* Assign `owner`, `editor`, `viewer` roles for permission control.
-* Validate permissions before any CRUD operation.
+      Logged in format: [REMINDER] Event: {title}, User: {user_id}, Time: {relative_time}
 
----
+**Server Actions / TanStack Table**
 
-## Additional Notes
+   Server-side pagination (10 events/page)
 
-* **Testing**: Unit and integration tests implemented via Vitest.
-* **Linting**: ESLint and Prettier configured for consistent code style.
-* **Deployment**: Compatible with Vercel, Netlify, or custom Node.js servers.
+   Sortable columns: title, date, status
+
+   Filterable: status, date range, reminder presence
+
+   Cache first page in memory; fetch other pages dynamically
+
+**Handling Custom Constraints**
+
+   Reminder Logic: Each reminder is unique, triggers at the correct time, and prevents duplication.
+
+   Session Timeout: Managed with NextAuth JWT and client-side hooks for inactivity logout (30-minute expiration).
+
+   Event Ownership: Each event linked to a userId. Update/Delete access is controlled based on ownership.
+
+   Start/End Time Management: Start time captured on page load and remains constant; end time can be adjusted before sending to the API.
+
+**Scalability Considerations**
+
+   Use distributed queues (e.g., BullMQ or RabbitMQ) for scaling reminders.
+
+   Cache frequent queries with Redis or in-memory solutions for faster table rendering.
+
+   Support horizontal scaling via environment-specific DB endpoints and serverless functions.
+
+   Stateless Server Actions to allow multiple server instances.
