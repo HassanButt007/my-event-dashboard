@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 
 interface TableColumn {
-  Header: string;
+  Header: ReactNode;  // 👈 allow JSX or string
   accessor: string;
 }
 

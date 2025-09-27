@@ -27,7 +27,7 @@ const ReminderSchema = z.object({
 
 // Format DB date string as YYYY-MM-DDTHH:MM for datetime-local input
 function formatDBDateForInput(dbDate: string) {
-    const date = new Date(dbDate); // parse DB string
+    const date = new Date(dbDate);
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');

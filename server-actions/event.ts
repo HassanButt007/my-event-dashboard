@@ -13,7 +13,7 @@ const EventSchema = z.object({
     status: z.enum(["DRAFT", "PUBLISHED", "CANCELED"]),
 });
 
-// ---------------- CREATE EVENT ----------------
+// Create Event
 export async function createEventAction(data: unknown) {
   try {
     const parsed = EventSchema.safeParse(data)
@@ -46,8 +46,7 @@ export async function createEventAction(data: unknown) {
   }
 }
 
-
-// ---------------- GET EVENTS ----------------
+// Get Event List with pagination, sorting, filtering
 export async function getEventsAction(page = 1, pageSize = 10) {
     const user = await getLoggedInUser();
     const skip = (page - 1) * pageSize;
@@ -87,7 +86,7 @@ export async function getEventsAction(page = 1, pageSize = 10) {
     return { events: mapped, total };
 }
 
-// ---------------- UPDATE EVENT ----------------
+// Update Event
 export async function updateEventAction(eventId: number, data: unknown) {
     const parsed = EventSchema.safeParse(data);
     if (!parsed.success) throw new Error(parsed.error.errors[0]?.message);
@@ -119,7 +118,7 @@ export async function updateEventAction(eventId: number, data: unknown) {
     }
 }
 
-// ---------------- DELETE EVENT ----------------
+// Delete Event
 export async function deleteEventAction(eventId: number) {
     const user = await getLoggedInUser();
     if (!user) throw new Error("Unauthorized");
@@ -147,7 +146,7 @@ export async function deleteEventAction(eventId: number) {
 }
 
 
-// ---------------- GET SINGLE EVENT ----------------
+// Get Single Event by ID with permission check
 export async function getEventByIdAction(eventId: number) {
     const user = await getLoggedInUser();
 

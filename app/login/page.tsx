@@ -18,12 +18,11 @@ export default function LoginPage() {
 
     const res = await signIn("credentials", {
       redirect: false,
-      email,
-      password,
+      email: email, 
+      password: password,
     });
 
     if (res?.error) {
-      // setError("Invalid email or password");
       toast.error("Invalid email or password");
     } else if (res?.ok) {
       toast.success("Logged in successfully!");

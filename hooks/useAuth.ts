@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
-        // ✅ Keep id as number
+        // Keep id as number
         return {
           id: user.id,
           email: user.email,

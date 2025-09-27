@@ -2,6 +2,8 @@
 
 import React, { FormEvent, useState, useEffect } from 'react'
 import { createEventAction, updateEventAction } from '@/server-actions/event'
+import { toast } from 'sonner';
+import { toInputDateTime, fromInputDateTime } from '@/lib/date'
 
 export interface EventData {
   id: number
@@ -20,7 +22,9 @@ interface EventFormProps {
 export default function EventForm({ initialData, onSuccess }: EventFormProps) {
   const [title, setTitle] = useState(initialData?.title || '')
   const [description, setDescription] = useState(initialData?.description || '')
-  const [date, setDate] = useState(initialData?.date || '')
+  const [date, setDate] = useState(
+    initialData?.date ? toInputDateTime(initialData.date) : ''
+  )
   const [location, setLocation] = useState(initialData?.location || '')
   const [status, setStatus] = useState<EventData['status']>(initialData?.status || 'DRAFT')
   const [loading, setLoading] = useState(false)
@@ -29,7 +33,7 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
     if (initialData) {
       setTitle(initialData.title)
       setDescription(initialData.description || '')
-      setDate(initialData.date)
+      setDate(toInputDateTime(initialData.date))
       setLocation(initialData.location)
       setStatus(initialData.status)
     }
@@ -40,21 +44,30 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
     setLoading(true)
 
     try {
+      const payload = {
+        title,
+        description,
+        date: fromInputDateTime(date),
+        location,
+        status,
+      }
+
       if (initialData?.id) {
-        // UPDATE existing event
-        await updateEventAction(initialData.id, { title, description, date, location, status })
+        await updateEventAction(initialData.id, payload)
+        toast.success('Event updated successfully!')
       } else {
-        // CREATE new event
-        await createEventAction({ title, description, date, location, status })
+        await createEventAction(payload)
+        toast.success('Event created successfully!')
       }
 
       if (onSuccess) onSuccess()
     } catch (err: any) {
-      alert(err.message || 'Failed to save event. Please check your input.')
+      toast.error(err.message || 'Failed to save event. Please check your input.')
     } finally {
       setLoading(false)
     }
   }
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

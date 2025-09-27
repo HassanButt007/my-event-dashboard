@@ -12,8 +12,8 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -40,7 +40,7 @@
     ".next/types/**/*.ts",
     "next-auth.d.ts",
     "src/types/**/*.d.ts"
-, "prisma/seed.js"  ],
+, "prisma/seed.ts"  ],
   "exclude": [
     "node_modules"
   ]

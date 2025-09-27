@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import EventForm, { EventData } from '@/components/EventForm'
 import { getEventsAction } from '@/server-actions/event'
+import { toInputDateTime } from '@/lib/date'
 
 // Type for events returned from getEventsAction
 interface ServerEvent {
@@ -32,16 +33,13 @@ export default function EditEventPage() {
         const event = events.find(e => e.id.toString() === eventId)
         if (!event) throw new Error('Event not found')
 
-        // Format date for <input type="datetime-local">
-        const localDate = new Date(event.date).toISOString().slice(0, 16)
-
         setEventData({
           id: Number(event.id),
           title: event.title,
           description: event.description,
-          date: localDate,
+          date: toInputDateTime(event.date),
           location: event.location,
-          status: event.status
+          status: event.status,
         })
       } catch (err: any) {
         alert(err.message)

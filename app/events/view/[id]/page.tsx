@@ -8,6 +8,7 @@ import { getRemindersForUser, deleteReminderAction } from '@/server-actions/remi
 import { toast, Toaster } from "sonner"
 import { FaEdit, FaTrashAlt } from 'react-icons/fa'
 import { useSession } from 'next-auth/react'
+import { format } from "date-fns";
 
 interface EventData {
   id: number
@@ -52,7 +53,7 @@ export default function ViewEventPage() {
           description: ev.description,
           date: ev.date,
           location: ev.location,
-          status: ev.status,
+          status: ev.status as 'DRAFT' | 'PUBLISHED' | 'CANCELED',
         })
       } catch (err: any) {
         alert(err.message)
@@ -82,7 +83,7 @@ export default function ViewEventPage() {
           eventId: r.eventId,
         }))
 
-        console.log("eventReminders", eventReminders)
+      console.log("eventReminders", eventReminders)
       setReminders(eventReminders)
     } catch (err) {
       console.error(err)
@@ -127,7 +128,9 @@ export default function ViewEventPage() {
         <div className="flex flex-col md:flex-row md:justify-between mb-6">
           <div className="mb-4 md:mb-0">
             <p className="text-gray-600 font-semibold">Date & Time:</p>
-            <p className="text-gray-800">{event.date}</p>
+            <p className="text-gray-800">
+              {format(new Date(event.date), "M/d/yyyy, h:mm:ss a")}
+            </p>
           </div>
 
           <div>
@@ -144,10 +147,10 @@ export default function ViewEventPage() {
         <div className="mb-6 flex items-center space-x-4">
           <span
             className={`px-3 py-1 rounded-full text-white font-semibold ${event.status === 'PUBLISHED'
-                ? 'bg-green-500'
-                : event.status === 'DRAFT'
-                  ? 'bg-yellow-500'
-                  : 'bg-red-500'
+              ? 'bg-green-500'
+              : event.status === 'DRAFT'
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
               }`}
           >
             {event.status}

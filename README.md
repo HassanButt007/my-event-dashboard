@@ -22,7 +22,7 @@ A production-quality **Event Management Dashboard with Reminders**, built with *
 
 2. **Install dependencies**
    npm install
-
+               
 
 3. **Initialize Shadcn/UI**
    npx shadcn-ui init

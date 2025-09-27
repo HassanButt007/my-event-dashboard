@@ -26,7 +26,7 @@ export default function ReminderDialog({
       <Dialog.Trigger asChild>
         {children ? children : (
           <button className="text-blue-500 underline text-sm">
-            {reminderId ? "Edit" : "Add"}
+            {/* {reminderId ? "Edit" : "Add"} */}
           </button>
         )}
       </Dialog.Trigger>

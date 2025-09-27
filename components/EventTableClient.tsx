@@ -1,8 +1,7 @@
-// components/EventTableClient.tsx
 "use client"
 
 import React, { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ColumnDef,
   flexRender,
@@ -17,10 +16,8 @@ import { FaEdit, FaTrashAlt, FaEye } from "react-icons/fa"
 import { toast, Toaster } from "sonner"
 import { deleteEventAction } from "@/server-actions/event"
 import DeleteConfirmDialog from "./DeleteConfirmDialog"
-import ReminderForm from "@/components/ReminderForm"
-import FilterBar, { FilterState } from "./FilterBar"
-import * as Dialog from "@radix-ui/react-dialog"
 import ReminderDialog from "./ReminderDialog"
+import FilterBar, { FilterState } from "./FilterBar"
 
 interface EventRow {
   id: string
@@ -40,44 +37,26 @@ export default function EventTableClient({
   page,
   pageSize,
   currentUserId,
+  currentSort,
+  currentOrder,
+  currentFilters,
 }: {
   data: EventRow[]
   total: number
   page: number
   pageSize: number
   currentUserId?: number | null
+  currentSort?: string
+  currentOrder?: "asc" | "desc"
+  currentFilters?: FilterState
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [filters, setFilters] = useState<FilterState>({})
+  const [filters, setFilters] = useState<FilterState>(currentFilters || {})
 
-  const filteredData = useMemo(() => {
-    return data.filter((event) => {
-      const matchesSearch = filters.search
-        ? event.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        event.location.toLowerCase().includes(filters.search.toLowerCase())
-        : true
-
-      const matchesStatus = filters.status ? event.status === filters.status : true
-
-      const matchesReminder =
-        filters.reminder === "yes"
-          ? !!event.reminder
-          : filters.reminder === "no"
-            ? !event.reminder
-            : true
-
-      const matchesStartDate = filters.startDate
-        ? new Date(event.date) >= new Date(filters.startDate)
-        : true
-
-      const matchesEndDate = filters.endDate
-        ? new Date(event.date) <= new Date(filters.endDate)
-        : true
-
-      return matchesSearch && matchesStatus && matchesReminder && matchesStartDate && matchesEndDate
-    })
-  }, [data, filters])
+  const visibleData = data
 
   const handleDeleteConfirm = async () => {
     if (!deleteId) return
@@ -98,6 +77,45 @@ export default function EventTableClient({
         error: (err: any) => err.message || "Delete failed",
       }
     )
+  }
+
+  function pushWithParams(newParams: Record<string, string | undefined>) {
+    const params = new URLSearchParams(
+      Array.from(searchParams?.entries?.() ?? [])
+    )
+    Object.entries(newParams).forEach(([k, v]) => {
+      if (v === undefined || v === "") params.delete(k)
+      else params.set(k, v)
+    })
+    const qs = params.toString()
+    router.push(`/events${qs ? `?${qs}` : ""}`)
+  }
+
+  function onFilterChangeAndPush(updatedFilters: FilterState) {
+    setFilters(updatedFilters)
+    pushWithParams({
+      search: updatedFilters.search || undefined,
+      status: updatedFilters.status || undefined,
+      startDate: updatedFilters.startDate || undefined,
+      endDate: updatedFilters.endDate || undefined,
+      hasReminder: updatedFilters.reminder || undefined,
+      page: "1",
+    })
+  }
+
+  function handleSort(field: string) {
+    const currentSortField =
+      currentSort || searchParams.get("sort") || ""
+    const currentOrderParam =
+      currentOrder ||
+      ((searchParams.get("order") as "asc" | "desc" | null) || "asc")
+
+    let nextOrder: "asc" | "desc" = "asc"
+    if (currentSortField === field) {
+      nextOrder = currentOrderParam === "asc" ? "desc" : "asc"
+    }
+
+    pushWithParams({ sort: field, order: nextOrder, page: "1" })
   }
 
   const columns = useMemo<ColumnDef<EventRow>[]>(() => [
@@ -166,7 +184,9 @@ export default function EventTableClient({
 
             <button
               onClick={() => isOwner && router.push(`/events/${eventId}`)}
-              className={`text-blue-500 hover:text-blue-700 ${!isOwner ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`text-blue-500 hover:text-blue-700 ${
+                !isOwner ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               disabled={!isOwner}
             >
               <FaEdit size={18} />
@@ -174,7 +194,9 @@ export default function EventTableClient({
 
             <button
               onClick={() => isOwner && setDeleteId(eventId)}
-              className={`text-red-500 hover:text-red-700 ${!isOwner ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`text-red-500 hover:text-red-700 ${
+                !isOwner ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               disabled={!isOwner}
             >
               <FaTrashAlt size={18} />
@@ -186,7 +208,7 @@ export default function EventTableClient({
   ], [currentUserId])
 
   const table = useReactTable({
-    data: filteredData,
+    data: visibleData,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -201,22 +223,54 @@ export default function EventTableClient({
     return rowObj
   })
 
-  const tableColumns = columns.map(col => ({
-    Header: col.header as string,
-    accessor: col.id!,
-  }))
+  // ✅ FIX: use `Header` (capital H) to match Table.tsx
+  const tableColumns = columns.map(col => {
+    const isSorted = (currentSort || searchParams.get("sort")) === col.id
+    const order =
+      currentOrder ||
+      (searchParams.get("order") as "asc" | "desc" | null) ||
+      undefined
+
+    const headerContent =
+      col.id === "title" ||
+      col.id === "date" ||
+      col.id === "location" ||
+      col.id === "status" ? (
+        <button
+          onClick={() => handleSort(col.id!)}
+          className="flex items-center space-x-2"
+          aria-label={`Sort by ${String(col.header)}`}
+        >
+          <span>{col.header as string}</span>
+          {isSorted && (
+            <span className="text-xs">{order === "asc" ? "▲" : "▼"}</span>
+          )}
+        </button>
+      ) : (
+        col.header as string
+      )
+
+    return {
+      Header: headerContent,
+      accessor: col.id!,
+    }
+  })
+
+  function goToPage(p: number) {
+    if (p < 1) p = 1
+    if (p > totalPages) p = totalPages
+    pushWithParams({ page: String(p) })
+  }
 
   return (
     <div className="space-y-4">
       <Toaster position="top-right" />
 
-      {/* ✅ FilterBar Component */}
       <FilterBar
         initialFilters={filters}
-        onFilterChange={(updatedFilters) => setFilters(updatedFilters)}
+        onFilterChange={(updatedFilters) => onFilterChangeAndPush(updatedFilters)}
       />
 
-      {/* Table */}
       <Table columns={tableColumns} data={tableData} />
 
       <div className="flex items-center justify-between mt-2">
@@ -226,14 +280,14 @@ export default function EventTableClient({
         <div className="space-x-2">
           <Button
             disabled={page <= 1}
-            onClick={() => router.push(`/events?page=${page - 1}`)}
+            onClick={() => goToPage(page - 1)}
             variant="secondary"
           >
             Prev
           </Button>
           <Button
             disabled={page >= totalPages}
-            onClick={() => router.push(`/events?page=${page + 1}`)}
+            onClick={() => goToPage(page + 1)}
             variant="secondary"
           >
             Next
