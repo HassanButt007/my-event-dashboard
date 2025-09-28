@@ -97,9 +97,6 @@ export default function ReminderBell() {
                   <div className="font-mono text-xs text-gray-800">
                     [REMINDER] Event: {r.eventTitle}, User: {r.userId}, Time: {relativeTime}
                   </div>
-                  {/* <div className="text-xs text-gray-500">
-                    Exact: {toInputDateTime(r.reminderTime)}
-                  </div> */}
                 </div>
               </>
             );

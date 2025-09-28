@@ -5,6 +5,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
+import { IoMdFunnel } from "react-icons/io";
 
 export type FilterState = {
   search?: string;
@@ -28,7 +29,7 @@ export default function FilterBar({ initialFilters, onFilterChange }: FilterBarP
   const [endDate, setEndDate] = useState(initialFilters?.endDate || "");
   const [reminder, setReminder] = useState<"" | "yes" | "no">(initialFilters?.reminder || "");
 
-
+  const [isOpen, setIsOpen] = useState(false);
   const debouncedSearch = useDebounce(search, 500);
 
   useEffect(() => {
@@ -39,7 +40,6 @@ export default function FilterBar({ initialFilters, onFilterChange }: FilterBarP
       endDate: endDate || undefined,
       reminder: reminder || undefined,
     });
-    
   }, [debouncedSearch, status, startDate, endDate, reminder]);
 
   const handleReset = () => {
@@ -51,71 +51,89 @@ export default function FilterBar({ initialFilters, onFilterChange }: FilterBarP
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-      {/* Search */}
-      <div className="flex-1 min-w-[200px]">
-        <Input
-          label="Search"
-          placeholder="Search by title or location"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      {/* Mobile toggle */}
+      <div className="flex items-center justify-between lg:hidden">
+        <h3 className="font-semibold text-gray-700">Filters</h3>
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100"
+        >
+          <IoMdFunnel className="w-4 h-4" />
+          {isOpen ? "Hide" : "Show"}
+        </button>
       </div>
 
-      {/* Status */}
-      <div className="w-36 sm:w-44">
-        <Select
-          label="Status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as "" | "DRAFT" | "PUBLISHED" | "CANCELED")}
-          options={[
-            { value: "", label: "All" },
-            { value: "DRAFT", label: "Draft" },
-            { value: "PUBLISHED", label: "Published" },
-            { value: "CANCELED", label: "Canceled" },
-          ]}
-        />
-      </div>
+      {/* Filters grid */}
+      <div
+        className={`mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 transition-all duration-300 ${isOpen ? "max-h-screen opacity-100" : "max-h-0 overflow-hidden opacity-0 lg:opacity-100 lg:max-h-screen"
+          }`}
+      >
+        {/* Search */}
+        <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+          <Input
+            label="Search"
+            placeholder="Search by title or location"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-      {/* Start Date */}
-      <div className="w-36 sm:w-40">
-        <Input
-          label="Start Date"
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-      </div>
+        {/* Status */}
+        <div>
+          <Select
+            label="Status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as "" | "DRAFT" | "PUBLISHED" | "CANCELED")}
+            options={[
+              { value: "", label: "All" },
+              { value: "DRAFT", label: "Draft" },
+              { value: "PUBLISHED", label: "Published" },
+              { value: "CANCELED", label: "Canceled" },
+            ]}
+          />
+        </div>
 
-      {/* End Date */}
-      <div className="w-36 sm:w-40">
-        <Input
-          label="End Date"
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
-      </div>
+        {/* Start Date */}
+        <div>
+          <Input
+            label="Start Date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
 
-      {/* Reminder */}
-      <div className="w-36 sm:w-44">
-        <Select
-          label="Reminder"
-          value={reminder}
-          onChange={(e) => setReminder(e.target.value as "" | "yes" | "no")}
-          options={[
-            { value: "", label: "All" },
-            { value: "yes", label: "Yes" },
-            { value: "no", label: "No" },
-          ]}
-        />
-      </div>
+        {/* End Date */}
+        <div>
+          <Input
+            label="End Date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
 
-      {/* Reset Button */}
-      <div className="ml-auto">
-        <Button variant="secondary" onClick={handleReset}>
-          Reset
-        </Button>
+        {/* Reminder */}
+        <div>
+          <Select
+            label="Reminder"
+            value={reminder}
+            onChange={(e) => setReminder(e.target.value as "" | "yes" | "no")}
+            options={[
+              { value: "", label: "All" },
+              { value: "yes", label: "Yes" },
+              { value: "no", label: "No" },
+            ]}
+          />
+        </div>
+
+        {/* Reset Button */}
+        <div className="flex items-end">
+          <Button variant="secondary" className="w-full" onClick={handleReset}>
+            Reset
+          </Button>
+        </div>
       </div>
     </div>
   );
