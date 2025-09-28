@@ -7,9 +7,11 @@ import { FaBell } from 'react-icons/fa';
 import { formatDistanceToNow } from 'date-fns';
 import Dropdown from './ui/dropdown-menu';
 import { toInputDateTime } from '@/lib/date';
+import { useRouter } from 'next/navigation';
 
 type BellItem = {
   id: number;
+  eventId: number;
   eventTitle: string;
   reminderTime: string;
   userId: number;
@@ -17,6 +19,7 @@ type BellItem = {
 
 export default function ReminderBell() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [items, setItems] = useState<BellItem[]>([]);
   const userId = session?.user?.id ? Number(session.user.id) : null;
 
@@ -31,6 +34,7 @@ export default function ReminderBell() {
           r.reminderTime instanceof Date ? r.reminderTime.toISOString() : r.reminderTime;
         return {
           id: r.id,
+          eventId: r.eventId,
           eventTitle: r.eventTitle ?? r.event?.title ?? 'Untitled Event',
           reminderTime,
           userId: r.userId,
@@ -75,6 +79,10 @@ export default function ReminderBell() {
     }
   }
 
+  function handleClick(reminder: BellItem) {
+    router.push(`/events/view/${reminder.eventId}`);
+  }
+
   return (
     <Dropdown
       trigger={
@@ -93,7 +101,11 @@ export default function ReminderBell() {
             const relativeTime = formatDistanceToNow(new Date(r.reminderTime), { addSuffix: true });
             return (
               <>
-                <div key={r.id} className="px-3 py-2 border-b last:border-none">
+                <div
+                  key={r.id}
+                  onClick={() => handleClick(r)}
+                  className="px-3 py-2 border-b last:border-none cursor-pointer hover:bg-gray-100 transition"
+                >
                   <div className="font-mono text-xs text-gray-800">
                     [REMINDER] Event: {r.eventTitle}, User: {r.userId}, Time: {relativeTime}
                   </div>
