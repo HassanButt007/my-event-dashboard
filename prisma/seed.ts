@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Local enum to match Prisma schema
+// Local enum to match Prisma schema 
 enum EventStatus {
   DRAFT = "DRAFT",
   PUBLISHED = "PUBLISHED",
@@ -36,8 +36,8 @@ const dummyEvents: {
     { title: "Fashion Show", description: "Latest fashion trends", location: "US-TX: Dallas", status: EventStatus.PUBLISHED },
     { title: "Charity Run", description: "5k fundraising run", location: "US-NY: New York", status: EventStatus.DRAFT },
     { title: "Film Festival", description: "Independent films showcase", location: "US-CA: Los Angeles", status: EventStatus.PUBLISHED },
-  
-];
+
+  ];
 
 function randomReminderOffset(): number {
   const min = 15 * 60 * 1000; // 15 minutes
@@ -47,7 +47,7 @@ function randomReminderOffset(): number {
 
 async function main() {
   console.log("Seeding database...");
-
+// use prisma migrate reset
   await prisma.reminder.deleteMany();
   await prisma.event.deleteMany();
   await prisma.user.deleteMany();

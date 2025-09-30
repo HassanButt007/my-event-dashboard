@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import EventForm, { EventData } from '@/components/EventForm'
-import { getEventsAction } from '@/server-actions/event'
+import { getEventByIdAction } from '@/server-actions/event'
 import { toInputDateTime } from '@/lib/date'
 
 // Type for events returned from getEventsAction
@@ -29,9 +29,7 @@ export default function EditEventPage() {
 
     async function fetchEvent() {
       try {
-        const { events } = await getEventsAction() as { events: ServerEvent[] }
-        const event = events.find(e => e.id.toString() === eventId)
-        if (!event) throw new Error('Event not found')
+        const event = await getEventByIdAction(Number(eventId))
 
         setEventData({
           id: Number(event.id),
@@ -39,7 +37,7 @@ export default function EditEventPage() {
           description: event.description,
           date: toInputDateTime(event.date),
           location: event.location,
-          status: event.status,
+          status: event.status as 'DRAFT' | 'PUBLISHED' | 'CANCELED',
         })
       } catch (err: any) {
         alert(err.message)
@@ -55,14 +53,24 @@ export default function EditEventPage() {
   if (loading) return <div>Loading...</div>
 
   return (
-    <div className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Edit Event</h1>
-      {eventData && (
-        <EventForm
-          initialData={eventData}
-          onSuccess={() => router.push('/events')}
-        />
-      )}
+
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
+      <div className="w-full max-w-2xl bg-white shadow-lg rounded-xl p-8">
+        <button
+          onClick={() => router.back()}
+          className="mb-6 flex items-center text-gray-600 hover:text-gray-800"
+        >
+          ← Back
+        </button>
+
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">Create New Event</h1>
+        {eventData && (
+          <EventForm
+            initialData={eventData}
+            onSuccess={() => router.push('/events')}
+          />
+        )}
+      </div>
     </div>
   )
 }

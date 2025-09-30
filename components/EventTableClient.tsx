@@ -79,6 +79,7 @@ export default function EventTableClient({
     )
   }
 
+  // Update URL with new params
   function pushWithParams(newParams: Record<string, string | undefined>) {
     const params = new URLSearchParams(
       Array.from(searchParams?.entries?.() ?? [])
@@ -91,6 +92,7 @@ export default function EventTableClient({
     router.push(`/events${qs ? `?${qs}` : ""}`)
   }
 
+  // When filters change, reset to page 1
   function onFilterChangeAndPush(updatedFilters: FilterState) {
     setFilters(updatedFilters)
     pushWithParams({
@@ -103,6 +105,7 @@ export default function EventTableClient({
     })
   }
 
+  // Handle sorting
   function handleSort(field: string) {
     const currentSortField =
       currentSort || searchParams.get("sort") || ""
@@ -118,6 +121,7 @@ export default function EventTableClient({
     pushWithParams({ sort: field, order: nextOrder, page: "1" })
   }
 
+  // Define table columns
   const columns = useMemo<ColumnDef<EventRow>[]>(() => [
     { id: "title", header: "Title", accessorFn: row => row.title },
     {
@@ -207,14 +211,17 @@ export default function EventTableClient({
     },
   ], [currentUserId])
 
+  // Initialize table
   const table = useReactTable({
     data: visibleData,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
 
+  // Calculate total pages
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
+  // Prepare data for rendering
   const tableData = table.getRowModel().rows.map(row => {
     const rowObj: Record<string, any> = {}
     row.getVisibleCells().forEach(cell => {
@@ -223,7 +230,7 @@ export default function EventTableClient({
     return rowObj
   })
 
-  // ✅ FIX: use `Header` (capital H) to match Table.tsx
+  // use `Header` to match Table.tsx
   const tableColumns = columns.map(col => {
     const isSorted = (currentSort || searchParams.get("sort")) === col.id
     const order =

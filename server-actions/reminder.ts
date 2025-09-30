@@ -20,6 +20,7 @@ type ActionResult<T = any> =
 const MIN_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Validate that reminderTime is between 15 minutes and 7 days before eventDate
 function validateReminderTime(eventDate: Date, reminderTime: string) {
   const reminderDate = new Date(reminderTime);
   if (isNaN(reminderDate.getTime())) {
@@ -37,6 +38,7 @@ function validateReminderTime(eventDate: Date, reminderTime: string) {
   return { valid: true, date: reminderDate };
 }
 
+// Format reminder
 function formatReminder(r: any) {
   return {
     id: r.id,
@@ -57,22 +59,27 @@ export async function createReminderAction(
   payload: CreateReminderPayload
 ): Promise<ActionResult> {
   try {
+    // Ensure user is logged in
     const { eventId, userId, reminderTime } = payload;
     if (!eventId || !userId || !reminderTime) {
       return { success: false, error: 'Missing required fields' };
     }
 
+    // Event check and permission
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return { success: false, error: 'Event not found' };
 
+    // Validate reminder time
     const { valid, date, error } = validateReminderTime(event.date, reminderTime);
     if (!valid) return { success: false, error: error! };
 
+    // Check if reminder already exists for this user and event
     const existing = await prisma.reminder.findFirst({ where: { eventId, userId } });
     if (existing) {
       return { success: false, error: 'A reminder already exists for this event.' };
     }
 
+    // Create the reminder
     const reminder = await prisma.reminder.create({
       data: { eventId, userId, reminderTime: date!, seen: false },
     });
@@ -96,6 +103,7 @@ export async function updateReminderAction(
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    // Fetch existing reminder
     const existing = await prisma.reminder.findUnique({ where: { id: reminderId } });
     if (!existing) return { success: false, error: 'Reminder not found' };
     if (existing.userId !== user.id) return { success: false, error: 'Not allowed' };
@@ -122,15 +130,18 @@ export async function updateReminderAction(
 // Delete
 export async function deleteReminderAction(reminderId: number): Promise<ActionResult<null>> {
   try {
+    
     if (!reminderId) return { success: false, error: 'Invalid reminderId' };
 
     const user = await getLoggedInUser();
     if (!user) return { success: false, error: 'Unauthorized' };
 
+    // Fetch existing reminder
     const reminder = await prisma.reminder.findUnique({ where: { id: reminderId } });
     if (!reminder) return { success: false, error: 'Reminder not found' };
     if (reminder.userId !== user.id) return { success: false, error: 'Not allowed' };
 
+    // Delete the reminder
     await prisma.reminder.delete({ where: { id: reminderId } });
 
     revalidatePath('/events');
@@ -145,6 +156,7 @@ export async function deleteReminderAction(reminderId: number): Promise<ActionRe
 // Queries
 // ------------------
 
+// Get all reminders for a user
 export async function getRemindersForUser(userId: number) {
   const reminders = await prisma.reminder.findMany({
     where: { userId },
@@ -154,6 +166,7 @@ export async function getRemindersForUser(userId: number) {
   return reminders.map(formatReminder);
 }
 
+// Get due reminders for a user (reminderTime <= now)
 export async function getDueRemindersForUser(userId: number) {
   const now = new Date();
   const reminders = await prisma.reminder.findMany({
@@ -164,6 +177,7 @@ export async function getDueRemindersForUser(userId: number) {
   return reminders.map(formatReminder);
 }
 
+// Get unseen due reminders for a user
 export async function getUnseenDueRemindersForUser(userId: number) {
   const now = new Date();
   const reminders = await prisma.reminder.findMany({
@@ -180,7 +194,8 @@ export async function getUnseenDueRemindersForUser(userId: number) {
   }));
 }
 
-export async function markRemindersAsSeenForUser(userId: number) {
+// Mark due reminders as seen for a user
+export async function markRemindersAsSeenForUser(userId: number, p0: number[]) {
   try {
     const now = new Date();
     await prisma.reminder.updateMany({
@@ -195,6 +210,7 @@ export async function markRemindersAsSeenForUser(userId: number) {
   }
 }
 
+// Get reminder by ID
 export async function getReminderById(reminderId: number) {
   if (!reminderId) return null;
   const r = await prisma.reminder.findUnique({

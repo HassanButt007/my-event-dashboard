@@ -17,6 +17,12 @@ export default function Home() {
         {/* Actions */}
         <div className="flex flex-wrap justify-center gap-4">
           <Link
+            href="/events"
+            className="px-6 py-3 rounded-xl bg-gray-900 text-white font-semibold shadow hover:bg-gray-700 transition"
+          >
+            Events
+          </Link>
+          <Link
             href="/login"
             className="px-6 py-3 rounded-xl bg-gray-900 text-white font-semibold shadow hover:bg-gray-700 transition"
           >

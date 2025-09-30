@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { FaBell } from 'react-icons/fa';
 import { formatDistanceToNow } from 'date-fns';
 import Dropdown from './ui/dropdown-menu';
-import { toInputDateTime } from '@/lib/date';
 import { useRouter } from 'next/navigation';
 
 type BellItem = {
@@ -23,6 +22,7 @@ export default function ReminderBell() {
   const [items, setItems] = useState<BellItem[]>([]);
   const userId = session?.user?.id ? Number(session.user.id) : null;
 
+  // Fetch unseen reminders
   const fetchUnseen = useCallback(async () => {
     if (!userId) return;
 
@@ -41,7 +41,6 @@ export default function ReminderBell() {
         } as BellItem;
       });
 
-      // Log notifications in required format
       mapped.forEach((rem) => {
         const relativeTime = formatDistanceToNow(new Date(rem.reminderTime), { addSuffix: true });
         console.log(`[REMINDER] Event: ${rem.eventTitle}, User: ${rem.userId}, Time: ${relativeTime}`);
@@ -55,32 +54,25 @@ export default function ReminderBell() {
 
   useEffect(() => {
     fetchUnseen();
-    const interval = setInterval(fetchUnseen, 30_000); // Poll every 30s
+    const interval = setInterval(fetchUnseen, 30_000);
     return () => clearInterval(interval);
   }, [fetchUnseen]);
 
+  // Handle dropdown open/close
   async function handleOpenChange(open: boolean) {
     if (!open) return;
-    if (!userId) {
-      setItems([]);
-      return;
-    }
-
-    try {
-      const res = await markRemindersAsSeenForUser(userId);
-      if ((res as any).success) {
-        setItems([]);
-      } else {
-        setItems([]);
-      }
-    } catch (err) {
-      console.error('Failed to mark seen:', err);
-      setItems([]);
-    }
   }
 
-  function handleClick(reminder: BellItem) {
-    router.push(`/events/view/${reminder.eventId}`);
+  // Handle clicking a reminder
+  async function handleClick(reminder: BellItem) {
+    try {
+      await markRemindersAsSeenForUser(userId!, [reminder.id]); 
+      setItems((prev) => prev.filter((item) => item.id !== reminder.id));
+      router.push(`/events/view/${reminder.eventId}`);
+    } catch (err) {
+      console.error('Failed to mark reminder as seen:', err);
+      router.push(`/events/view/${reminder.eventId}`);
+    }
   }
 
   return (
@@ -98,23 +90,33 @@ export default function ReminderBell() {
       items={
         items.length > 0
           ? items.map((r) => {
-            const relativeTime = formatDistanceToNow(new Date(r.reminderTime), { addSuffix: true });
-            return (
-              <>
+              const relativeTime = formatDistanceToNow(
+                new Date(r.reminderTime),
+                { addSuffix: true }
+              );
+              return (
                 <div
                   key={r.id}
                   onClick={() => handleClick(r)}
                   className="px-3 py-2 border-b last:border-none cursor-pointer hover:bg-gray-100 transition"
                 >
                   <div className="font-mono text-xs text-gray-800">
-                    [REMINDER] Event: {r.eventTitle}, User: {r.userId}, Time: {relativeTime}
+                    [REMINDER] Event: {r.eventTitle}, User: {r.userId}, Time:{" "}
+                    {relativeTime}
                   </div>
                 </div>
-              </>
-            );
-          })
-          : [<div key="empty" className="px-3 py-2 text-gray-500 text-sm">No reminders</div>]
+              );
+            })
+          : [
+              <div
+                key="empty"
+                className="px-3 py-2 text-gray-500 text-sm"
+              >
+                No reminders
+              </div>,
+            ]
       }
+      onOpenChange={handleOpenChange}
     />
   );
 }

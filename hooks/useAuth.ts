@@ -1,4 +1,5 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+// hooks/useAuth.ts
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/db";
@@ -22,7 +23,6 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
 
-        // Keep id as number
         return {
           id: user.id,
           email: user.email,
@@ -45,6 +45,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };

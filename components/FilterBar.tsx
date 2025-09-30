@@ -32,6 +32,7 @@ export default function FilterBar({ initialFilters, onFilterChange }: FilterBarP
   const [isOpen, setIsOpen] = useState(false);
   const debouncedSearch = useDebounce(search, 500);
 
+  // Effect for Propagating Filters
   useEffect(() => {
     onFilterChange({
       search: debouncedSearch || undefined,
@@ -129,8 +130,12 @@ export default function FilterBar({ initialFilters, onFilterChange }: FilterBarP
         </div>
 
         {/* Reset Button */}
-        <div className="flex items-end">
-          <Button variant="secondary" className="w-full" onClick={handleReset}>
+        <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end">
+          <Button
+            variant="secondary"
+            className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg shadow"
+            onClick={handleReset}
+          >
             Reset
           </Button>
         </div>

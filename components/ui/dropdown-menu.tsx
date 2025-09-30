@@ -5,9 +5,10 @@ import React, { useState, useRef, useEffect } from 'react'
 interface DropdownProps {
   trigger: React.ReactNode
   items: React.ReactNode[] // allow JSX
+  onOpenChange?: (open: boolean) => void // 🔥 NEW PROP
 }
 
-const Dropdown: React.FC<DropdownProps> = ({ trigger, items }) => {
+const Dropdown: React.FC<DropdownProps> = ({ trigger, items, onOpenChange }) => {
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -16,18 +17,26 @@ const Dropdown: React.FC<DropdownProps> = ({ trigger, items }) => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOpen(false)
+        onOpenChange?.(false) // 🔥 notify parent
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [onOpenChange])
+
+  // Toggle function
+  const toggleDropdown = () => {
+    const newOpen = !open
+    setOpen(newOpen)
+    onOpenChange?.(newOpen) // 🔥 notify parent
+  }
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
       {/* Trigger button */}
-      <div onClick={() => setOpen(!open)} className="cursor-pointer">
+      <div onClick={toggleDropdown} className="cursor-pointer">
         {trigger}
       </div>
 

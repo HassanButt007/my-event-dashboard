@@ -1,7 +1,6 @@
 import prisma from "@/lib/db";
 import { getLoggedInUser } from "@/server-actions/getLoggedInUser";
 import { getSearchParams } from "@/hooks/useGetSearchParams";
-import { getCache, setCache } from "@/lib/eventCache";
 import EventsPageClient from "@/components/EventsPageClient";
 
 export const runtime = "nodejs";
@@ -18,14 +17,21 @@ export default async function EventsPage(props: EventsPageProps) {
   const pageSize = 10;
   const skip = (page - 1) * pageSize;
 
-  const sortFieldParam = searchParams?.sort || "date";
-  const sortOrder: "asc" | "desc" = searchParams?.order === "desc" ? "desc" : "asc";
-  const allowedSortFields = ["date", "title", "status", "location"];
-  const sortField = allowedSortFields.includes(sortFieldParam) ? sortFieldParam : "date";
+  const sortFieldParam = searchParams?.sort || "createdAt";
+  const allowedSortFields = ["date", "title", "status", "location", "createdAt"];
+  const sortField = allowedSortFields.includes(sortFieldParam)
+    ? sortFieldParam
+    : "createdAt";
+  const sortOrder: "asc" | "desc" =
+    searchParams?.order === "desc" ? "desc" : "desc";
 
   const currentFilters = {
     search: searchParams?.search,
-    status: searchParams?.status as "DRAFT" | "PUBLISHED" | "CANCELED" | undefined,
+    status: searchParams?.status as
+      | "DRAFT"
+      | "PUBLISHED"
+      | "CANCELED"
+      | undefined,
     startDate: searchParams?.startDate,
     endDate: searchParams?.endDate,
     reminder: searchParams?.hasReminder as "yes" | "no" | undefined,
@@ -34,18 +40,20 @@ export default async function EventsPage(props: EventsPageProps) {
   const user = await getLoggedInUser();
   const userId = user?.id ? Number(user.id) : null;
 
-  const cacheKey = JSON.stringify({ userId, page, sortField, sortOrder, currentFilters });
-  if (page === 1) {
-    const cached = getCache(cacheKey);
-    if (cached) return cached;
-  }
+  const cacheKey = JSON.stringify({
+    userId,
+    page,
+    sortField,
+    sortOrder,
+    currentFilters,
+  });
 
   let eventsRaw: any[] = [];
   let total = 0;
   let publishedCount = 0;
   let draftCount = 0;
 
-  // --- Fetch events (same as your original code) ---
+  // --- Fetch events ---
   if (userId) {
     const where: any = {
       OR: [{ userId }, { status: "PUBLISHED" }],
@@ -64,42 +72,41 @@ export default async function EventsPage(props: EventsPageProps) {
         : {}),
     };
 
-    const whereWithExtras: any = { ...where };
-    if (currentFilters.reminder === "yes") whereWithExtras.reminders = { some: {} };
-    if (currentFilters.reminder === "no") whereWithExtras.reminders = { none: {} };
+    if (currentFilters.reminder === "yes") where.reminders = { some: {} };
+    if (currentFilters.reminder === "no") where.reminders = { none: {} };
 
     if (currentFilters.startDate || currentFilters.endDate) {
-      const dateFilter: any = {};
-      if (currentFilters.startDate) dateFilter.gte = new Date(currentFilters.startDate);
-      if (currentFilters.endDate) dateFilter.lte = new Date(currentFilters.endDate);
-      whereWithExtras.date = dateFilter;
+      where.date = {};
+      if (currentFilters.startDate)
+        where.date.gte = new Date(currentFilters.startDate);
+      if (currentFilters.endDate)
+        where.date.lte = new Date(currentFilters.endDate);
     }
 
-    const [events, totalCount, userDraftCount, allPublishedCount] = await Promise.all([
-      prisma.event.findMany({
-        where: whereWithExtras,
-        orderBy: { [sortField]: sortOrder },
-        skip,
-        take: pageSize,
-        include: { reminders: true },
-      }),
-      prisma.event.count({ where: whereWithExtras }),
-      prisma.event.count({ where: { userId, status: "DRAFT" } }),
-      prisma.event.count({ where: { status: "PUBLISHED" } }),
-    ]);
+    const [events, totalCount, userDraftCount, allPublishedCount] =
+      await Promise.all([
+        prisma.event.findMany({
+          where,
+          orderBy: { [sortField]: sortOrder },
+          skip,
+          take: pageSize,
+          include: { reminders: true },
+        }),
+        prisma.event.count({ where }),
+        prisma.event.count({ where: { userId, status: "DRAFT" } }),
+        prisma.event.count({ where: { status: "PUBLISHED" } }),
+      ]);
 
     eventsRaw = events;
     total = totalCount;
     draftCount = userDraftCount;
     publishedCount = allPublishedCount;
   } else {
-    const baseWhere: any = {
-      status: "PUBLISHED",
-      ...(currentFilters.status ? { status: currentFilters.status } : {}),
-    };
+    const where: any = { status: "PUBLISHED" };
 
+    if (currentFilters.status) where.status = currentFilters.status;
     if (currentFilters.search) {
-      baseWhere.AND = [
+      where.AND = [
         {
           OR: [
             { title: { contains: currentFilters.search } },
@@ -109,25 +116,26 @@ export default async function EventsPage(props: EventsPageProps) {
       ];
     }
 
-    if (currentFilters.reminder === "yes") baseWhere.reminders = { some: {} };
-    if (currentFilters.reminder === "no") baseWhere.reminders = { none: {} };
+    if (currentFilters.reminder === "yes") where.reminders = { some: {} };
+    if (currentFilters.reminder === "no") where.reminders = { none: {} };
 
     if (currentFilters.startDate || currentFilters.endDate) {
-      const dateFilter: any = {};
-      if (currentFilters.startDate) dateFilter.gte = new Date(currentFilters.startDate);
-      if (currentFilters.endDate) dateFilter.lte = new Date(currentFilters.endDate);
-      baseWhere.date = dateFilter;
+      where.date = {};
+      if (currentFilters.startDate)
+        where.date.gte = new Date(currentFilters.startDate);
+      if (currentFilters.endDate)
+        where.date.lte = new Date(currentFilters.endDate);
     }
 
     const [events, totalCount] = await Promise.all([
       prisma.event.findMany({
-        where: baseWhere,
+        where,
         orderBy: { [sortField]: sortOrder },
         skip,
         take: pageSize,
         include: { reminders: true },
       }),
-      prisma.event.count({ where: baseWhere }),
+      prisma.event.count({ where }),
     ]);
 
     eventsRaw = events;
@@ -148,7 +156,14 @@ export default async function EventsPage(props: EventsPageProps) {
     userId: e.userId,
   }));
 
-  const pageJSX = (
+  const pageData = {
+    mapped,
+    total,
+    publishedCount,
+    draftCount,
+  };
+
+  return (
     <EventsPageClient
       userId={userId}
       mappedEvents={mapped}
@@ -162,8 +177,4 @@ export default async function EventsPage(props: EventsPageProps) {
       draftCount={draftCount}
     />
   );
-
-  if (page === 1) setCache(cacheKey, pageJSX);
-
-  return pageJSX;
 }

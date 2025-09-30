@@ -20,6 +20,7 @@ export default function ReminderNotifier() {
   useEffect(() => {
     if (!userId) return
 
+    // periodically check reminders for the logged-in user and show toast notifications
     const checkReminders = async () => {
       try {
         const rawReminders = await getRemindersForUser(userId)

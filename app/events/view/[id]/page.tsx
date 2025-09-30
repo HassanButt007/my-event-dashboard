@@ -4,26 +4,22 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getEventByIdAction } from '@/server-actions/event'
 import ReminderDialog from '@/components/ReminderDialog'
-import { getRemindersForUser, deleteReminderAction } from '@/server-actions/reminder'
+import { deleteReminderAction } from '@/server-actions/reminder'
 import { toast, Toaster } from "sonner"
 import { FaEdit, FaTrashAlt } from 'react-icons/fa'
 import { useSession } from 'next-auth/react'
-import { format } from "date-fns";
+import { format } from "date-fns"
 
-interface EventData {
-  id: number
+interface ServerEvent {
+  id: string | number
   title: string
   description?: string
   date: string
   location: string
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELED'
-}
-
-interface ReminderData {
-  id: number
-  reminderTime: string
+  reminder?: string | null
+  reminderId?: number | null
   userId: number
-  eventId: number
 }
 
 export default function ViewEventPage() {
@@ -31,15 +27,11 @@ export default function ViewEventPage() {
   const params = useParams() as { id?: string }
   const eventId = params?.id
   const { data: session, status } = useSession()
-  const [event, setEvent] = useState<EventData | null>(null)
-  const [reminders, setReminders] = useState<ReminderData[]>([])
+  const [event, setEvent] = useState<ServerEvent | null>(null)
   const [loading, setLoading] = useState(true)
-  const [remindersLoading, setRemindersLoading] = useState(false)
 
   // Convert session user ID to number
   const currentUserId = session?.user?.id ? Number(session.user.id) : null
-
-  console.log("currentUserId", currentUserId)
 
   useEffect(() => {
     if (!eventId || status === 'loading') return
@@ -47,16 +39,9 @@ export default function ViewEventPage() {
     async function fetchEvent() {
       try {
         const ev = await getEventByIdAction(Number(eventId))
-        setEvent({
-          id: Number(ev.id),
-          title: ev.title,
-          description: ev.description,
-          date: ev.date,
-          location: ev.location,
-          status: ev.status as 'DRAFT' | 'PUBLISHED' | 'CANCELED',
-        })
+        setEvent(ev ? { ...ev, status: ev.status as ServerEvent['status'] } : null)
       } catch (err: any) {
-        alert(err.message)
+        toast.error(err.message || 'Failed to load event')
         router.push('/events')
       } finally {
         setLoading(false)
@@ -64,33 +49,7 @@ export default function ViewEventPage() {
     }
 
     fetchEvent()
-    if (currentUserId) fetchReminders()
-  }, [eventId, router, currentUserId, status])
-
-  async function fetchReminders() {
-    if (!currentUserId || !eventId) return
-    setRemindersLoading(true)
-    try {
-      const data = await getRemindersForUser(currentUserId)
-      const eventReminders: ReminderData[] = data
-        .filter(r => r.eventId === Number(eventId))
-        .map(r => ({
-          id: r.id,
-          reminderTime: r.reminderTime instanceof Date
-            ? r.reminderTime.toISOString()
-            : r.reminderTime,
-          userId: r.userId,
-          eventId: r.eventId,
-        }))
-
-      console.log("eventReminders", eventReminders)
-      setReminders(eventReminders)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setRemindersLoading(false)
-    }
-  }
+  }, [eventId, router, status])
 
   async function handleDelete(reminderId: number) {
     try {
@@ -99,7 +58,9 @@ export default function ViewEventPage() {
         success: 'Reminder deleted!',
         error: 'Failed to delete reminder',
       })
-      fetchReminders()
+      // Refresh event after deletion
+      const ev = await getEventByIdAction(Number(eventId))
+      setEvent(ev ? { ...ev, status: ev.status as ServerEvent['status'] } : null)
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong')
     }
@@ -108,7 +69,7 @@ export default function ViewEventPage() {
   if (loading) return <div className="text-center py-10">Loading...</div>
   if (!event) return null
 
-  const hasReminder = reminders.length > 0
+  const hasReminder = !!event.reminderId
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -174,7 +135,10 @@ export default function ViewEventPage() {
               eventId={Number(eventId)}
               currentUserId={currentUserId}
               reminderId={undefined}
-              onSuccess={fetchReminders}
+              onSuccess={async () => {
+                const ev = await getEventByIdAction(Number(eventId))
+                setEvent(ev ? { ...ev, status: ev.status as ServerEvent['status'] } : null)
+              }}
             >
               <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                 + Add Reminder
@@ -183,41 +147,38 @@ export default function ViewEventPage() {
           )}
         </div>
 
-        {remindersLoading ? (
-          <p className="text-gray-500">Loading reminders...</p>
-        ) : reminders.length === 0 ? (
+        {!hasReminder ? (
           <p className="text-gray-500">No reminders for this event.</p>
         ) : (
           <ul className="space-y-2">
-            {reminders.map(r => (
-              <li key={r.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
-                <span className="text-gray-800 font-medium">
-                  {new Date(r.reminderTime).toLocaleString()}
-                </span>
+            <li className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border">
+              <span className="text-gray-800 font-medium">
+                {event.reminder ? new Date(event.reminder).toLocaleString() : 'No reminder time'}
+              </span>
+              {currentUserId === event.userId && event.reminderId && (
                 <div className="flex space-x-2">
-                  {currentUserId === r.userId && (
-                    <>
-                      <ReminderDialog
-                        eventId={Number(eventId)}
-                        currentUserId={currentUserId}
-                        reminderId={r.id}
-                        onSuccess={fetchReminders}
-                      >
-                        <button className="text-blue-600 hover:underline">
-                          <FaEdit className="mr-1" />
-                        </button>
-                      </ReminderDialog>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="text-red-600 hover:underline flex items-center"
-                      >
-                        <FaTrashAlt className="mr-1" />
-                      </button>
-                    </>
-                  )}
+                  <ReminderDialog
+                    eventId={Number(eventId)}
+                    currentUserId={currentUserId}
+                    reminderId={event.reminderId}
+                    onSuccess={async () => {
+                      const ev = await getEventByIdAction(Number(eventId))
+                      setEvent(ev ? { ...ev, status: ev.status as ServerEvent['status'] } : null)
+                    }}
+                  >
+                    <button className="text-blue-600 hover:underline flex items-center">
+                      <FaEdit className="mr-1" />
+                    </button>
+                  </ReminderDialog>
+                  <button
+                    onClick={() => handleDelete(event.reminderId!)}
+                    className="text-red-600 hover:underline flex items-center"
+                  >
+                    <FaTrashAlt className="mr-1" />
+                  </button>
                 </div>
-              </li>
-            ))}
+              )}
+            </li>
           </ul>
         )}
       </div>

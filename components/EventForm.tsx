@@ -4,6 +4,7 @@ import React, { FormEvent, useState, useEffect } from 'react'
 import { createEventAction, updateEventAction } from '@/server-actions/event'
 import { toast } from 'sonner';
 import { toInputDateTime, fromInputDateTime } from '@/lib/date'
+import { useRouter } from 'next/navigation'
 
 export interface EventData {
   id: number
@@ -20,11 +21,10 @@ interface EventFormProps {
 }
 
 export default function EventForm({ initialData, onSuccess }: EventFormProps) {
+  const router = useRouter()
   const [title, setTitle] = useState(initialData?.title || '')
   const [description, setDescription] = useState(initialData?.description || '')
-  const [date, setDate] = useState(
-    initialData?.date ? toInputDateTime(initialData.date) : ''
-  )
+  const [date, setDate] = useState(initialData?.date ? toInputDateTime(initialData.date) : '')
   const [location, setLocation] = useState(initialData?.location || '')
   const [status, setStatus] = useState<EventData['status']>(initialData?.status || 'DRAFT')
   const [loading, setLoading] = useState(false)
@@ -43,37 +43,45 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
     e.preventDefault()
     setLoading(true)
 
+    // Simple client-side validation
+    if (!title.trim() || !location.trim() || !date) {
+      toast.error('Title, Date and Location are required.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         date: fromInputDateTime(date),
-        location,
+        location: location.trim(),
         status,
       }
 
       if (initialData?.id) {
         await updateEventAction(initialData.id, payload)
-        toast.success('Event updated successfully!')
+        toast.success('Event updated successfully!'); 
       } else {
         await createEventAction(payload)
         toast.success('Event created successfully!')
       }
 
-      if (onSuccess) onSuccess()
+      onSuccess?.()
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save event. Please check your input.')
+      toast.error(err?.message || String(err) || 'Failed to save event. Please check your input.')
     } finally {
       setLoading(false)
     }
   }
 
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Title */}
       <div>
-        <label className="block text-gray-700 mb-2">Title</label>
+        <label htmlFor="title" className="block text-gray-700 mb-2">Title</label>
         <input
+          id="title"
           name="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -84,9 +92,11 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
         />
       </div>
 
+      {/* Description */}
       <div>
-        <label className="block text-gray-700 mb-2">Description</label>
+        <label htmlFor="description" className="block text-gray-700 mb-2">Description</label>
         <textarea
+          id="description"
           name="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -96,9 +106,11 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
         />
       </div>
 
+      {/* Date & Time */}
       <div>
-        <label className="block text-gray-700 mb-2">Date & Time</label>
+        <label htmlFor="date" className="block text-gray-700 mb-2">Date & Time</label>
         <input
+          id="date"
           name="date"
           type="datetime-local"
           value={date}
@@ -108,21 +120,25 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
         />
       </div>
 
+      {/* Location */}
       <div>
-        <label className="block text-gray-700 mb-2">Location</label>
+        <label htmlFor="location" className="block text-gray-700 mb-2">Location</label>
         <input
+          id="location"
           name="location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           required
-          placeholder="e.g., New York, NY or US-NY: New York"
+          placeholder="e.g., New York, NY"
           className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
+      {/* Status */}
       <div>
-        <label className="block text-gray-700 mb-2">Status</label>
+        <label htmlFor="status" className="block text-gray-700 mb-2">Status</label>
         <select
+          id="status"
           name="status"
           value={status}
           onChange={(e) => setStatus(e.target.value as EventData['status'])}
@@ -134,12 +150,14 @@ export default function EventForm({ initialData, onSuccess }: EventFormProps) {
         </select>
       </div>
 
+      {/* Submit Button */}
       <div className="flex justify-end">
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
         >
+          {loading && <span className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></span>}
           {initialData?.id ? 'Update Event' : 'Create Event'}
         </button>
       </div>

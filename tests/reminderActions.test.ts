@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as reminderActions from "@/server-actions/reminder";
 import prisma from "@/lib/db";
 
+// Mock call
 vi.mock("@/lib/db", () => ({
   default: {
     event: { findUnique: vi.fn() },
@@ -17,16 +18,19 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// Mock revalidatePath and getLoggedInUser
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/server-actions/getLoggedInUser", () => ({
   getLoggedInUser: vi.fn(),
 }));
 
 describe("Reminder Actions", () => {
+  // Clear mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  // check missing fields
   it("should fail when missing fields", async () => {
     const result = await reminderActions.createReminderAction({
       eventId: 0,
@@ -34,6 +38,7 @@ describe("Reminder Actions", () => {
       reminderTime: "",
     });
 
+    // Assertions
     if (!result.success) {
       expect(result.error).toBe("Missing required fields");
     } else {
@@ -41,6 +46,7 @@ describe("Reminder Actions", () => {
     }
   });
 
+  // event not found
   it("should fail when event not found", async () => {
     (prisma.event.findUnique as any).mockResolvedValue(null);
 
@@ -57,6 +63,7 @@ describe("Reminder Actions", () => {
     }
   });
 
+  // successful creation
   it("should create reminder successfully", async () => {
     const now = new Date();
 

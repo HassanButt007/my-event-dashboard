@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getLoggedInUser } from "@/server-actions/getLoggedInUser";
+import { clearCache } from "@/lib/eventCache";
 
 const EventSchema = z.object({
     title: z.string().min(1).max(100),
@@ -15,35 +16,40 @@ const EventSchema = z.object({
 
 // Create Event
 export async function createEventAction(data: unknown) {
-  try {
-    const parsed = EventSchema.safeParse(data)
-    if (!parsed.success) 
-      return { success: false, error: parsed.error.errors[0]?.message }
+    try {
+        // check input data against schema
+        const parsed = EventSchema.safeParse(data)
+        if (!parsed.success)
+            return { success: false, error: parsed.error.errors[0]?.message }
 
-    const date = new Date(parsed.data.date)
-    if (date <= new Date()) 
-      return { success: false, error: "Date must be in the future" }
+        //Date must be in the future
+        const date = new Date(parsed.data.date)
+        if (date <= new Date())
+            return { success: false, error: "Date must be in the future" }
 
-    const user = await getLoggedInUser()
-    if (!user) 
-      return { success: false, error: "Unauthorized" }
+        // for checking logged in user
+        const user = await getLoggedInUser()
+        if (!user)
+            return { success: false, error: "Unauthorized" }
 
-    const ev = await prisma.event.create({
-      data: {
-        title: parsed.data.title,
-        description: parsed.data.description,
-        date,
-        location: parsed.data.location,
-        status: parsed.data.status,
-        userId: Number(user.id),
-      },
-    })
+        // create event
+        const ev = await prisma.event.create({
+            data: {
+                title: parsed.data.title,
+                description: parsed.data.description,
+                date,
+                location: parsed.data.location,
+                status: parsed.data.status,
+                userId: Number(user.id),
+            },
+        })
 
-    revalidatePath("/events")
-    return { success: true, data: ev }
-  } catch (err: any) {
-    return { success: false, error: err.message || "Something went wrong" }
-  }
+        // for cache invalidation
+        revalidatePath("/events")
+        return { success: true, data: ev }
+    } catch (err: any) {
+        return { success: false, error: err.message || "Something went wrong" }
+    }
 }
 
 // Get Event List with pagination, sorting, filtering
@@ -51,21 +57,24 @@ export async function getEventsAction(page = 1, pageSize = 10) {
     const user = await getLoggedInUser();
     const skip = (page - 1) * pageSize;
 
+    // Show all events for logged-in user, only PUBLISHED for others
     const where = user
         ? { userId: Number(user.id) }
         : { status: "PUBLISHED" as const };
 
+    // Fetch events and total count in parallel
     const [events, total] = await Promise.all([
         prisma.event.findMany({
             where,
             orderBy: { date: "asc" },
             skip,
             take: pageSize,
-            include: { reminders: true }, 
+            include: { reminders: true },
         }),
         prisma.event.count({ where }),
     ]);
 
+    // Map events to include only the current user's reminder if logged in
     const mapped = events.map((e) => {
         const userReminder = user ? e.reminders.find((r) => r.userId === user.id) : undefined;
 
@@ -88,58 +97,68 @@ export async function getEventsAction(page = 1, pageSize = 10) {
 
 // Update Event
 export async function updateEventAction(eventId: number, data: unknown) {
+    // Validate input
     const parsed = EventSchema.safeParse(data);
     if (!parsed.success) throw new Error(parsed.error.errors[0]?.message);
 
+    // Date must be in the future
     const date = new Date(parsed.data.date);
     if (date <= new Date()) throw new Error("Date must be in the future");
 
+    // Check authentication
     const user = await getLoggedInUser();
     if (!user) throw new Error("Unauthorized");
 
-    try {
-        const ev = await prisma.event.update({
-            where: { id: eventId },
-            data: {
-                title: parsed.data.title,
-                description: parsed.data.description,
-                date,
-                location: parsed.data.location,
-                status: parsed.data.status,
-            },
-        });
+    // Check ownership first
+    const existing = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!existing) throw new Error("Event not found");
+    if (existing.userId !== Number(user.id)) throw new Error("Unauthorized");
 
-        if (ev.userId !== Number(user.id)) throw new Error("Unauthorized");
+    // Only then update
+    const ev = await prisma.event.update({
+        where: { id: eventId },
+        data: {
+            title: parsed.data.title,
+            description: parsed.data.description,
+            date,
+            location: parsed.data.location,
+            status: parsed.data.status,
+        },
+    });
 
-        revalidatePath("/events");
-        return ev;
-    } catch {
-        throw new Error("Event not found or you do not have permission");
-    }
+    revalidatePath("/events");
+    return ev;
 }
+
 
 // Delete Event
 export async function deleteEventAction(eventId: number) {
+    // Check authentication
     const user = await getLoggedInUser();
     if (!user) throw new Error("Unauthorized");
 
+    // Check ownership
     const event = await prisma.event.findUnique({
         where: { id: eventId },
         select: { userId: true },
     });
 
+    // Only the owner can delete
     if (!event || event.userId !== Number(user.id)) {
         throw new Error("Event not found or you do not have permission");
     }
 
+    // Delete associated reminders first due to foreign key constraint
     await prisma.reminder.deleteMany({
         where: { eventId },
     });
 
+    // Then delete the event
     await prisma.event.delete({
         where: { id: eventId },
     });
 
+    // Clear cache after deletion
     revalidatePath("/events");
 
     return { success: true };
@@ -150,17 +169,21 @@ export async function deleteEventAction(eventId: number) {
 export async function getEventByIdAction(eventId: number) {
     const user = await getLoggedInUser();
 
+    // Fetch event with reminders
     const event = await prisma.event.findUnique({
         where: { id: eventId },
         include: { reminders: true },
     });
 
+    // Permission check
     if (!event) throw new Error("Event not found");
 
+    // Only owner can view DRAFT or CANCELED events
     if (event.status !== "PUBLISHED" && event.userId !== Number(user?.id)) {
         throw new Error("You do not have permission to view this event");
     }
 
+    // Map to include only the current user's reminder if logged in
     const userReminder = user
         ? event.reminders.find((r) => r.userId === user.id)
         : undefined;
@@ -175,7 +198,7 @@ export async function getEventByIdAction(eventId: number) {
         reminder: userReminder?.reminderTime
             ? userReminder.reminderTime.toISOString()
             : null,
-        reminderId: userReminder?.id || null, 
+        reminderId: userReminder?.id || null,
         userId: event.userId,
     };
 }
